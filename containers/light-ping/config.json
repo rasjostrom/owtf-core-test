@@ -1,0 +1,36 @@
+{
+    "title": "Light_Weight_Scanner",
+    "version": "0.1",
+    "description": "This container is only used for testing purposes, save it!",
+    "commands": [
+        {
+            "noise": "passive",
+            "code": "666",
+            "command": "ping -c 5",
+            "target": "",
+            "description": "A simple 5-time ping"
+        },
+        {
+            "noise": "passive",
+            "code": "555",
+            "command": "nmap -v",
+            "target": "",
+            "description": "SYN Stealth Scan for open ports"
+        },
+        {
+            "noise": "aggressive",
+            "code": "444",
+            "command": "nmap -v -A",
+            "target": "",
+            "description": "OS detection, version detection, script scanning, and traceroute"
+        },
+        {
+            "noise": "aggressive",
+            "code": "version",
+            "command": "nmap --version",
+            "target": "",
+            "description": "Application specific version"
+        }
+
+    ]
+}

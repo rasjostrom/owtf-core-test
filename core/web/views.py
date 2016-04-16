@@ -10,10 +10,8 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from web import serializers
-from middleman import handler as middleman
 
-from dockerutils import get_owtf_c
-
+from dockerutils import dclient
 
 class IndexTemplateView(TemplateView):
     template_name = 'index.html'
@@ -23,129 +21,20 @@ class ListAll(APIView):
     """Lists all the containers."""
 
     def get(self, request, format=None):
-
-        image_status, images = get_owtf_c()
-
-        if image_status:
-            serializer = serializers.OwtfContainerSerializer(
-                images,  # Get all containers
-                many=True
-            )
-
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        else:
-            return HttpResponse('Failed to get _containers')
-
-
-class Info(APIView):
-    """Get info about a specific container."""
-
-    def get(self, request, image, *args, **kwargs):
-
-        image_status, image = get_owtf_c(image=image)
-
-        if image_status:
-            serializer = serializers.OwtfContainerSerializer(image)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-
-        else:
-            return HttpResponse('Failed!')
-
-
-class BuildImage(APIView):
-    """Build image"""
-
-    def get(self, request, image, *args, **kwargs):
-
-        image_status, image = get_owtf_c(image=image)
-
-        if image_status:
-            image.build_image()
-            serializer = serializers.OwtfContainerSerializer(image)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-
-        else:
-            return HttpResponse('Failed!')
-
-
-class RemoveImage(APIView):
-    """Remove image"""
-
-    def get(self, request, image, *args, **kwargs):
-
-        image_status, image = get_owtf_c(image=image)
-
-        if image_status:
-            image.remove_image()
-            serializer = serializers.OwtfContainerSerializer(image)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-
-        else:
-            return HttpResponse('Failed!')
-
-
-class BuildContainer(APIView):
-    """Build container"""
-
-    def get(self, request, image, *args, **kwargs):
-
-        image_status, image = get_owtf_c(image=image)
-
-        if image_status:
-            image.build_container()
-            serializer = serializers.OwtfContainerSerializer(image)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-
-        else:
-            return HttpResponse('Failed!')
-
-
-class RemoveContainer(APIView):
-    """Remove container"""
-
-    def get(self, request, image, *args, **kwargs):
-
-        image_status, image = get_owtf_c(image=image)
-
-        if image_status:
-            image.remove_container()
-            serializer = serializers.OwtfContainerSerializer(image)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-
-        else:
-            return HttpResponse('Failed!')
-
-
-class Start(APIView):
-    """Start container"""
-
-    def get(self, request, image, *args, **kwargs):
-
-        image_status, image = get_owtf_c(image=image)
-
-        if image_status:
-            image.start()
-            serializer = serializers.OwtfContainerSerializer(image)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-
-        else:
-            return HttpResponse('Failed!')
+        return Response(dclient.list_all(), status=status.HTTP_200_OK)
 
 
 class Stop(APIView):
     """Stop container"""
 
-    def get(self, request, image, *args, **kwargs):
-
-        image_status, image = get_owtf_c(image=image)
-
-        if image_status:
-            image.stop()
-            serializer = serializers.OwtfContainerSerializer(image)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-
-        else:
-            return HttpResponse('Failed!')
+    # def get(self, request, image, *args, **kwargs):
+    #     if image_status:
+    #         image.stop()
+    #         serializer = serializers.OwtfContainerSerializer(image)
+    #         return Response(serializer.data, status=status.HTTP_200_OK)
+    #
+    #     else:
+    #         return HttpResponse('Failed!')
 
 
 class Execute(APIView):
@@ -153,101 +42,27 @@ class Execute(APIView):
 
     def get(self, request, image, *args, **kwargs):
 
-        image_status, image = get_owtf_c(image=image)
 
-        if image_status:
-            serializer = serializers.OwtfContainerSerializer(image)
-            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(json.dumps({"msg":"hello"}), status=status.HTTP_200_OK)
 
-        else:
-            return HttpResponse('Failed!')
 
     def post(self, request, image, *args, **kwargs):
 
-        image_status, image = get_owtf_c(image=image)
+        request_data = serializers.CommandSerializer(data=request.data)
+        if request_data.is_valid():
+            data_obj = request_data.data
+            dclient.execute(data_obj['container'], data_obj['code'],
+                            data_obj['target'])
+            return Response(data_obj, status=status.HTTP_200_OK)
 
-        if image_status:
-
-            image.build_image()
-            image.build_container()
-            image.start()
-
-            request_data = serializers.CommandSerializer(data=request.data)
-            if request_data.is_valid():
-                image.results.append(middleman.send_for_execution(image.ip_address, request_data.data))
-                serializer = serializers.OwtfContainerSerializer(image)
-                return Response(serializer.data, status=status.HTTP_200_OK)
-
-            pprint(request_data.errors)
-            return HttpResponse('Command is not valid!')
-        else:
-            return HttpResponse('Failed!')
+        pprint(request_data.errors)
+        return HttpResponse('Command is not valid!')
 
 
-class BuildAll(APIView):
-    """Build all images and containers. This may take some time!"""
-
+class Results(APIView):
+    """Poll the workers for results and let them go"""
     def get(self, request):
-
-        image_status, image = get_owtf_c()
-        print(image)
-
-        for c in image:
-            c.build_image()
-            c.build_container()
-
-        image_status, image = get_owtf_c()
-
-        if image_status:
-            serializer = serializers.OwtfContainerSerializer(image, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-
-        else:
-            return HttpResponse('Failed to build all!')
-
-
-class RebuildAll(APIView):
-    """Rebuild all images and containers, may take some time!"""
-
-    def get(self, request):
-
-        image_status, image = get_owtf_c()
-        print(image)
-
-        for c in image:
-            c.stop()
-            c.remove_container()
-            c.remove_image()
-            c.build_image()
-            c.build_container()
-
-        image_status, image = get_owtf_c()
-
-        if image_status:
-            serializer = serializers.OwtfContainerSerializer(image, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-
-        else:
-            return HttpResponse('Failed to build all!')
-
-
-class StopAll(APIView):
-    """Stop and remove all containers"""
-
-    def get(self, request):
-
-        image_status, image = get_owtf_c()
-        print(image)
-
-        for c in image:
-            c.stop()
-            c.remove_container()
-
-        image_status, image = get_owtf_c()
-
-        if image_status:
-            serializer = serializers.OwtfContainerSerializer(image, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-
-        else:
-            return HttpResponse('Failed to stop all!')
+        json_results = dclient.check_results()
+        pprint(json_results)
+        return Response(json.dumps(json_results),
+                        status=status.HTTP_200_OK)
